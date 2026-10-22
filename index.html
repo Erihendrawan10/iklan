@@ -35,6 +35,7 @@ select,input{font:inherit;padding:9px 11px;border:1px solid var(--line);border-r
 .k b{display:block;font-size:20px;margin-top:2px}
 .k small{color:var(--mute);font-size:12px}
 .grid.big{grid-template-columns:repeat(auto-fill,minmax(230px,1fr))}.grid.big .k{padding:18px}.grid.big .k b{font-size:24px}
+.k .chg span{color:inherit;font-size:inherit}
 .chg{margin-top:8px;font-size:13px;font-weight:600}.mut{color:var(--mute);font-weight:400}
 .pos{color:var(--pos)}.neg{color:var(--neg)}
 h3{margin:24px 0 10px;font-size:15px}
@@ -62,7 +63,7 @@ label{font-size:13px;color:var(--mute);display:block;margin-bottom:3px}
 <div id="app">
 <header><div class="wrap">
   <h1>Laporan Meta Ads – Kurasin</h1>
-  <p>Solusi permasalahan air · versi 6</p>
+  <p>Solusi permasalahan air · versi 7</p>
   <nav>
     <button v-for="t in tabs" :key="t[0]" :class="{on:tab===t[0]}" @click="tab=t[0]">{{t[1]}}</button>
   </nav>
