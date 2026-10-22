@@ -191,7 +191,7 @@ const blank = () => ({ id:'', tanggal:new Date().toISOString().slice(0,10), ikla
 const sum = list => list.reduce((a,r)=>({iklan:a.iklan+r.iklan,kontak:a.kontak+r.kontak,closing:a.closing+r.closing,gross:a.gross+r.gross,lain:a.lain+r.lain}),{iklan:0,kontak:0,closing:0,gross:0,lain:0});
 
 createApp({
-  data:()=>({ tabs:[['dash','Dashboard'],['cmp','Perbandingan Bulanan'],['data','Input Data'],['set','Pengaturan']],
+  data:()=>({ tabs:[['dash','Dashboard'],['cmp','Bulanan'],['data','Input Data'],['set','Pengaturan']],
     tab:'dash', metric:'net', metrics:[
       {k:'kontak',label:'Jumlah kontak',t:'num',up:true,f:m=>m.kontak},
       {k:'closing',label:'Closing',t:'num',up:true,f:m=>m.closing},
