@@ -35,6 +35,7 @@ select,input{font:inherit;padding:9px 11px;border:1px solid var(--line);border-r
 .k b{display:block;font-size:20px;margin-top:2px}
 .k small{color:var(--mute);font-size:12px}
 .grid.big{grid-template-columns:repeat(auto-fill,minmax(230px,1fr))}.grid.big .k{padding:18px}.grid.big .k b{font-size:24px}
+.chg{margin-top:8px;font-size:13px;font-weight:600}.mut{color:var(--mute);font-weight:400}
 .pos{color:var(--pos)}.neg{color:var(--neg)}
 h3{margin:24px 0 10px;font-size:15px}
 .box{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px}
@@ -83,13 +84,18 @@ label{font-size:13px;color:var(--mute);display:block;margin-bottom:3px}
     </div>
     <div v-if="!rows.length" class="empty">Belum ada data. Buka tab Input Data untuk menambah laporan pertama.</div>
     <template v-else>
+      <p v-if="cmpM.cur && cmpM.prev" class="mut" style="margin:0 0 12px;font-size:13px">Perubahan membandingkan {{bln(cmpM.ck)}} dengan {{bln(cmpM.pk)}}.</p>
       <div class="grid big">
-        <div class="k"><span>Jumlah kontak</span><b>{{num(cur.kontak)}}</b></div>
-        <div class="k"><span>Closing</span><b>{{num(cur.closing)}}</b></div>
-        <div class="k"><span>Biaya iklan</span><b>{{rp(cur.iklan)}}</b></div>
-        <div class="k"><span>Gross profit</span><b>{{rp(cur.gross)}}</b></div>
-        <div class="k"><span>Net profit</span><b :class="cur.net>=0?'pos':'neg'">{{rp(cur.net)}}</b><small>gross profit − biaya iklan − biaya lain</small></div>
-        <div class="k"><span>Rata-rata net profit per 1 customer</span><b :class="cur.net>=0?'pos':'neg'">{{cur.closing?rp(cur.net/cur.closing):'-'}}</b><small>net profit ÷ closing</small></div>
+        <div class="k" v-for="c in cards" :key="c.l">
+          <span>{{c.l}}</span>
+          <b :class="c.col?(cur.net>=0?'pos':'neg'):''">{{fmt(c.t,c.v)}}</b>
+          <small v-if="c.hint">{{c.hint}}</small>
+          <div v-if="c.ch" class="chg">
+            <span :class="c.ch.cls">{{c.ch.diff>=0?'▲':'▼'}} {{c.ch.pct!==null?pct(Math.abs(c.ch.pct)):'baru'}}</span>
+            <span class="mut">({{signed(c.t,c.ch.diff)}})</span>
+          </div>
+          <div v-else class="chg mut">Belum ada data bulan sebelumnya</div>
+        </div>
       </div>
     </template>
   </section>
@@ -211,7 +217,30 @@ createApp({
     },
     fnet(){ return (this.f.gross||0)-(this.f.iklan||0)-(this.f.lain||0); },
     curMetric(){ return this.metrics.find(x=>x.k===this.metric); },
-    vals(){ return this.months.map(m=>this.curMetric.f(m)); }
+    vals(){ return this.months.map(m=>this.curMetric.f(m)); },
+    cmpM(){
+      const ks=[...this.monthKeys].reverse();
+      const ck=this.filter==='all'?ks[ks.length-1]:this.filter;
+      let pk='';
+      if(ck){ const [y,m]=ck.split('-').map(Number); const d=new Date(y,m-2,1); pk=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); }
+      return {ck,pk,cur:this.months.find(x=>x.key===ck),prev:this.months.find(x=>x.key===pk)};
+    },
+    cards(){
+      const c=this.cur, a=this.cmpM.cur, p=this.cmpM.prev;
+      const defs=[
+        {l:'Jumlah kontak',t:'num',up:true,f:x=>x.kontak},
+        {l:'Closing',t:'num',up:true,f:x=>x.closing},
+        {l:'Biaya iklan',t:'rp',up:false,f:x=>x.iklan},
+        {l:'Gross profit',t:'rp',up:true,f:x=>x.gross},
+        {l:'Net profit',t:'rp',up:true,f:x=>x.net,col:true,hint:'gross profit − biaya iklan − biaya lain'},
+        {l:'Rata-rata net profit per 1 customer',t:'rp',up:true,f:x=>x.closing?x.net/x.closing:0,col:true,hint:'net profit ÷ closing'}];
+      return defs.map(d=>{
+        let ch=null;
+        if(a&&p){ const x=d.f(a), y=d.f(p), df=x-y;
+          ch={diff:df,pct:y?df/Math.abs(y)*100:null,cls:df===0?'':((df>0)===d.up?'pos':'neg')}; }
+        return {...d,v:d.f(c),ch};
+      });
+    }
   },
   watch:{
     tab(){ this.$nextTick(this.draw); },
@@ -224,6 +253,7 @@ createApp({
     num:n=>Math.round(n).toLocaleString('id-ID'),
     pct:n=>n.toLocaleString('id-ID',{maximumFractionDigits:1})+'%',
     bln:k=>/^\d{4}-\d{2}/.test(k)?NB[+k.slice(5,7)-1]+' '+k.slice(0,4):'Tanggal tidak valid',
+    signed(t,d){ return (d>=0?'+':'−')+this.fmt(t,Math.abs(d)); },
     fmt(t,v){ return t==='rp'?this.rp(v):t==='pct'?this.pct(v):this.num(v); },
     net:r=>r.gross-r.iklan-r.lain,
     diff(i){ return this.vals[i]-this.vals[i-1]; },
