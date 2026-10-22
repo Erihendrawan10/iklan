@@ -63,7 +63,7 @@ label{font-size:13px;color:var(--mute);display:block;margin-bottom:3px}
 <div id="app">
 <header><div class="wrap">
   <h1>Laporan Meta Ads – Kurasin</h1>
-  <p>Solusi permasalahan air · versi 7</p>
+  <p>Solusi permasalahan air · versi 9</p>
   <nav>
     <button v-for="t in tabs" :key="t[0]" :class="{on:tab===t[0]}" @click="tab=t[0]">{{t[1]}}</button>
   </nav>
@@ -89,13 +89,13 @@ label{font-size:13px;color:var(--mute);display:block;margin-bottom:3px}
       <div class="grid big">
         <div class="k" v-for="c in cards" :key="c.l">
           <span>{{c.l}}</span>
-          <b :class="c.col?(cur.net>=0?'pos':'neg'):''">{{fmt(c.t,c.v)}}</b>
+          <b :class="c.col?(cur.net>=0?'pos':'neg'):''">{{c.na?'-':fmt(c.t,c.v)}}</b>
           <small v-if="c.hint">{{c.hint}}</small>
           <div v-if="c.ch" class="chg" :class="c.ch.cls">
-            <span>{{c.ch.diff>=0?'▲':'▼'}} {{c.ch.pct!==null?pct(Math.abs(c.ch.pct)):'baru'}}</span>
-            <span>({{signed(c.t,c.ch.diff)}})</span>
+            <span>{{chgTxt(c)}}</span>
+            <span v-if="c.t!=='pct'">({{signed(c.t,c.ch.diff)}})</span>
           </div>
-          <div v-else class="chg mut">Belum ada data bulan sebelumnya</div>
+          <div v-else class="chg mut">Tidak ada pembanding bulan sebelumnya</div>
         </div>
       </div>
     </template>
@@ -201,7 +201,10 @@ createApp({
       {k:'net',label:'Net profit',t:'rp',up:true,f:m=>m.net},
       {k:'netcust',label:'Rata-rata net profit per customer',t:'rp',up:true,f:m=>m.closing?m.net/m.closing:0},
       {k:'costcust',label:'Biaya per customer (iklan + lain)',t:'rp',up:false,f:m=>m.closing?(m.iklan+m.lain)/m.closing:0},
-      {k:'rate',label:'Closing rate',t:'pct',up:true,f:m=>m.kontak?m.closing/m.kontak*100:0}],
+      {k:'rate',label:'Closing rate',t:'pct',up:true,f:m=>m.kontak?m.closing/m.kontak*100:0},
+      {k:'costkontak',label:'Cost per kontak',t:'rp',up:false,f:m=>m.kontak?m.iklan/m.kontak:0},
+      {k:'costclosing',label:'Cost per closing',t:'rp',up:false,f:m=>m.closing?m.iklan/m.closing:0},
+      {k:'roi',label:'ROI %',t:'pct',up:true,f:m=>(m.iklan+m.lain)?m.net/(m.iklan+m.lain)*100:0}],
     url:getUrl(), urlInput:getUrl(), rows:[], loading:true, saving:false, err:'', ok:'', filter:'all', f:blank(), chart:null }),
   computed:{
     sorted(){ return [...this.rows].sort((a,b)=>b.tanggal.localeCompare(a.tanggal)); },
@@ -232,14 +235,17 @@ createApp({
         {l:'Jumlah kontak',t:'num',up:true,f:x=>x.kontak},
         {l:'Closing',t:'num',up:true,f:x=>x.closing},
         {l:'Biaya iklan',t:'rp',up:false,f:x=>x.iklan},
+        {l:'Cost per kontak',t:'rp',f:x=>x.kontak?x.iklan/x.kontak:0,na:x=>!x.kontak,hint:'biaya iklan ÷ kontak'},
+        {l:'Cost per closing',t:'rp',f:x=>x.closing?x.iklan/x.closing:0,na:x=>!x.closing,hint:'biaya iklan ÷ closing'},
         {l:'Gross profit',t:'rp',up:true,f:x=>x.gross},
         {l:'Net profit',t:'rp',up:true,f:x=>x.net,col:true,hint:'gross profit − biaya iklan − biaya lain'},
-        {l:'Rata-rata net profit per 1 customer',t:'rp',up:true,f:x=>x.closing?x.net/x.closing:0,col:true,hint:'net profit ÷ closing'}];
+        {l:'Rata-rata net profit per 1 customer',t:'rp',up:true,f:x=>x.closing?x.net/x.closing:0,col:true,hint:'net profit ÷ closing'},
+        {l:'ROI',t:'pct',f:x=>(x.iklan+x.lain)?x.net/(x.iklan+x.lain)*100:0,na:x=>!(x.iklan+x.lain),col:true,hint:'net profit ÷ (biaya iklan + biaya lain)'}];
       return defs.map(d=>{
         let ch=null;
-        if(a&&p){ const x=d.f(a), y=d.f(p), df=x-y;
+        if(a&&p&&!(d.na&&(d.na(a)||d.na(p)))){ const x=d.f(a), y=d.f(p), df=x-y;
           ch={diff:df,pct:y?df/Math.abs(y)*100:null,cls:df===0?'':(df>0?'pos':'neg')}; }
-        return {...d,v:d.f(c),ch};
+        return {...d,v:d.f(c),na:d.na?d.na(c):false,ch};
       });
     }
   },
@@ -254,6 +260,11 @@ createApp({
     num:n=>Math.round(n).toLocaleString('id-ID'),
     pct:n=>n.toLocaleString('id-ID',{maximumFractionDigits:1})+'%',
     bln:k=>/^\d{4}-\d{2}/.test(k)?NB[+k.slice(5,7)-1]+' '+k.slice(0,4):'Tanggal tidak valid',
+    chgTxt(c){
+      const ar=c.ch.diff>=0?'▲':'▼';
+      if(c.t==='pct') return ar+' '+Math.abs(c.ch.diff).toLocaleString('id-ID',{maximumFractionDigits:1})+' poin';
+      return ar+' '+(c.ch.pct!==null?this.pct(Math.abs(c.ch.pct)):'baru');
+    },
     signed(t,d){ return (d>=0?'+':'−')+this.fmt(t,Math.abs(d)); },
     fmt(t,v){ return t==='rp'?this.rp(v):t==='pct'?this.pct(v):this.num(v); },
     net:r=>r.gross-r.iklan-r.lain,
