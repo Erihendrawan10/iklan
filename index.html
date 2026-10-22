@@ -62,7 +62,7 @@ label{font-size:13px;color:var(--mute);display:block;margin-bottom:3px}
 <div id="app">
 <header><div class="wrap">
   <h1>Laporan Meta Ads – Kurasin</h1>
-  <p>Solusi permasalahan air</p>
+  <p>Solusi permasalahan air · versi 6</p>
   <nav>
     <button v-for="t in tabs" :key="t[0]" :class="{on:tab===t[0]}" @click="tab=t[0]">{{t[1]}}</button>
   </nav>
@@ -90,9 +90,9 @@ label{font-size:13px;color:var(--mute);display:block;margin-bottom:3px}
           <span>{{c.l}}</span>
           <b :class="c.col?(cur.net>=0?'pos':'neg'):''">{{fmt(c.t,c.v)}}</b>
           <small v-if="c.hint">{{c.hint}}</small>
-          <div v-if="c.ch" class="chg">
-            <span :class="c.ch.cls">{{c.ch.diff>=0?'▲':'▼'}} {{c.ch.pct!==null?pct(Math.abs(c.ch.pct)):'baru'}}</span>
-            <span class="mut">({{signed(c.t,c.ch.diff)}})</span>
+          <div v-if="c.ch" class="chg" :class="c.ch.cls">
+            <span>{{c.ch.diff>=0?'▲':'▼'}} {{c.ch.pct!==null?pct(Math.abs(c.ch.pct)):'baru'}}</span>
+            <span>({{signed(c.t,c.ch.diff)}})</span>
           </div>
           <div v-else class="chg mut">Belum ada data bulan sebelumnya</div>
         </div>
