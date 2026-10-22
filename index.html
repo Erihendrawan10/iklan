@@ -237,7 +237,7 @@ createApp({
       return defs.map(d=>{
         let ch=null;
         if(a&&p){ const x=d.f(a), y=d.f(p), df=x-y;
-          ch={diff:df,pct:y?df/Math.abs(y)*100:null,cls:df===0?'':((df>0)===d.up?'pos':'neg')}; }
+          ch={diff:df,pct:y?df/Math.abs(y)*100:null,cls:df===0?'':(df>0?'pos':'neg')}; }
         return {...d,v:d.f(c),ch};
       });
     }
@@ -259,7 +259,7 @@ createApp({
     diff(i){ return this.vals[i]-this.vals[i-1]; },
     diffTxt(i){ const d=this.diff(i); return (d>=0?'+':'−')+this.fmt(this.curMetric.t,Math.abs(d)); },
     chg(i){ const p=this.vals[i-1]; return p? (this.vals[i]-p)/Math.abs(p)*100 : null; },
-    cls(i){ const d=this.diff(i); return d===0?'':((d>0)===this.curMetric.up?'pos':'neg'); },
+    cls(i){ const d=this.diff(i); return d===0?'':(d>0?'pos':'neg'); },
     flash(t,kind){ this[kind]=t; setTimeout(()=>this[kind]='',4000); },
     async load(){
       this.loading=true; this.err='';
