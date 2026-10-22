@@ -34,6 +34,7 @@ select,input{font:inherit;padding:9px 11px;border:1px solid var(--line);border-r
 .k span{color:var(--mute);font-size:13px}
 .k b{display:block;font-size:20px;margin-top:2px}
 .k small{color:var(--mute);font-size:12px}
+.grid.big{grid-template-columns:repeat(auto-fill,minmax(230px,1fr))}.grid.big .k{padding:18px}.grid.big .k b{font-size:24px}
 .pos{color:var(--pos)}.neg{color:var(--neg)}
 h3{margin:24px 0 10px;font-size:15px}
 .box{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px}
@@ -82,48 +83,35 @@ label{font-size:13px;color:var(--mute);display:block;margin-bottom:3px}
     </div>
     <div v-if="!rows.length" class="empty">Belum ada data. Buka tab Input Data untuk menambah laporan pertama.</div>
     <template v-else>
-      <div class="hero">
-        <div><div class="lbl">Net profit</div>
-          <div class="big" :class="cur.net>=0?'pos':'neg'">{{rp(cur.net)}}</div></div>
-        <div class="sub">
-          <div><span class="lbl">Gross profit</span><b>{{rp(cur.gross)}}</b></div>
-          <div><span class="lbl">Total biaya</span><b>{{rp(cur.iklan+cur.lain)}}</b></div>
-          <div><span class="lbl">Margin bersih</span><b>{{cur.gross?pct(cur.net/cur.gross*100):'-'}}</b></div>
-        </div>
-      </div>
-      <div class="grid">
-        <div class="k"><span>Biaya iklan</span><b>{{rp(cur.iklan)}}</b></div>
-        <div class="k"><span>Biaya lain</span><b>{{rp(cur.lain)}}</b></div>
+      <div class="grid big">
         <div class="k"><span>Jumlah kontak</span><b>{{num(cur.kontak)}}</b></div>
-        <div class="k"><span>Closing</span><b>{{num(cur.closing)}}</b><small>Closing rate {{cur.kontak?pct(cur.closing/cur.kontak*100):'-'}}</small></div>
-        <div class="k"><span>Biaya per kontak</span><b>{{cur.kontak?rp(cur.iklan/cur.kontak):'-'}}</b><small>biaya iklan ÷ kontak</small></div>
-        <div class="k"><span>Biaya per 1 customer (iklan)</span><b>{{cur.closing?rp(cur.iklan/cur.closing):'-'}}</b><small>biaya iklan ÷ closing</small></div>
-        <div class="k"><span>Biaya per 1 customer (total)</span><b>{{cur.closing?rp((cur.iklan+cur.lain)/cur.closing):'-'}}</b><small>iklan + biaya lain ÷ closing</small></div>
-        <div class="k"><span>Profit bersih per customer</span><b :class="cur.net>=0?'pos':'neg'">{{cur.closing?rp(cur.net/cur.closing):'-'}}</b><small>net profit ÷ closing</small></div>
+        <div class="k"><span>Closing</span><b>{{num(cur.closing)}}</b></div>
+        <div class="k"><span>Biaya iklan</span><b>{{rp(cur.iklan)}}</b></div>
+        <div class="k"><span>Gross profit</span><b>{{rp(cur.gross)}}</b></div>
+        <div class="k"><span>Net profit</span><b :class="cur.net>=0?'pos':'neg'">{{rp(cur.net)}}</b><small>gross profit − biaya iklan − biaya lain</small></div>
+        <div class="k"><span>Rata-rata net profit per 1 customer</span><b :class="cur.net>=0?'pos':'neg'">{{cur.closing?rp(cur.net/cur.closing):'-'}}</b><small>net profit ÷ closing</small></div>
       </div>
     </template>
   </section>
 
   <!-- PERBANDINGAN -->
   <section v-if="!loading && tab==='cmp'">
-    <div class="bar"><h2>Perbandingan per bulan</h2></div>
+    <div class="bar"><h2>Perbandingan per bulan</h2><select v-model="metric" aria-label="Data yang dilihat"><option v-for="x in metrics" :key="x.k" :value="x.k">{{x.label}}</option></select></div>
     <div v-if="!months.length" class="empty">Belum ada data untuk dibandingkan.</div>
     <template v-else>
       <div class="box"><div style="height:300px"><canvas ref="cv"></canvas></div></div>
-      <h3>Tabel bulanan</h3>
+      <h3>{{curMetric.label}} per bulan</h3>
       <div class="tw"><table>
-        <thead><tr><th>Bulan</th><th>Biaya iklan</th><th>Kontak</th><th>Closing</th><th>Gross profit</th><th>Biaya lain</th><th>Net profit</th><th>Biaya/customer</th><th>Net vs bulan lalu</th></tr></thead>
+        <thead><tr><th>Bulan</th><th>{{curMetric.label}}</th><th>Selisih vs bulan lalu</th><th>Perubahan</th></tr></thead>
         <tbody>
           <tr v-for="(m,i) in months" :key="m.key">
-            <td>{{bln(m.key)}}</td><td>{{rp(m.iklan)}}</td><td>{{num(m.kontak)}}</td><td>{{num(m.closing)}}</td>
-            <td>{{rp(m.gross)}}</td><td>{{rp(m.lain)}}</td>
-            <td :class="m.net>=0?'pos':'neg'"><b>{{rp(m.net)}}</b></td>
-            <td>{{m.closing?rp((m.iklan+m.lain)/m.closing):'-'}}</td>
-            <td><span v-if="i>0" :class="delta(i)>=0?'pos':'neg'">{{delta(i)>=0?'▲':'▼'}} {{pct(Math.abs(delta(i)))}}</span><span v-else>-</span></td>
+            <td>{{bln(m.key)}}</td>
+            <td><b>{{fmt(curMetric.t,vals[i])}}</b></td>
+            <td><span v-if="i>0" :class="cls(i)">{{diffTxt(i)}}</span><span v-else>-</span></td>
+            <td><span v-if="i>0 && chg(i)!==null" :class="cls(i)">{{diff(i)>=0?'▲':'▼'}} {{pct(Math.abs(chg(i)))}}</span><span v-else>-</span></td>
           </tr>
         </tbody>
       </table></div>
-      <p class="lbl" style="color:var(--mute);font-size:13px">Biaya/customer = (biaya iklan + biaya lain) ÷ closing.</p>
     </template>
   </section>
 
@@ -182,15 +170,35 @@ const getUrl = () => { try { return localStorage.getItem('kurasin_api_url') || '
 
 const { createApp } = Vue;
 const NB = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+const normDate = v => {
+  const s = String(v || '').trim();
+  let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (m) return m[1] + '-' + m[2].padStart(2, '0') + '-' + m[3].padStart(2, '0');
+  m = s.match(/^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{4})/);
+  if (m) return m[3] + '-' + m[2].padStart(2, '0') + '-' + m[1].padStart(2, '0');
+  const d = new Date(s);
+  if (!isNaN(d)) return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  return '';
+};
 const blank = () => ({ id:'', tanggal:new Date().toISOString().slice(0,10), iklan:0, kontak:0, closing:0, gross:0, lain:0, catatan:'' });
 const sum = list => list.reduce((a,r)=>({iklan:a.iklan+r.iklan,kontak:a.kontak+r.kontak,closing:a.closing+r.closing,gross:a.gross+r.gross,lain:a.lain+r.lain}),{iklan:0,kontak:0,closing:0,gross:0,lain:0});
 
 createApp({
   data:()=>({ tabs:[['dash','Dashboard'],['cmp','Perbandingan Bulanan'],['data','Input Data'],['set','Pengaturan']],
-    tab:'dash', url:getUrl(), urlInput:getUrl(), rows:[], loading:true, saving:false, err:'', ok:'', filter:'all', f:blank(), chart:null }),
+    tab:'dash', metric:'net', metrics:[
+      {k:'kontak',label:'Jumlah kontak',t:'num',up:true,f:m=>m.kontak},
+      {k:'closing',label:'Closing',t:'num',up:true,f:m=>m.closing},
+      {k:'iklan',label:'Biaya iklan',t:'rp',up:false,f:m=>m.iklan},
+      {k:'lain',label:'Biaya lain',t:'rp',up:false,f:m=>m.lain},
+      {k:'gross',label:'Gross profit',t:'rp',up:true,f:m=>m.gross},
+      {k:'net',label:'Net profit',t:'rp',up:true,f:m=>m.net},
+      {k:'netcust',label:'Rata-rata net profit per customer',t:'rp',up:true,f:m=>m.closing?m.net/m.closing:0},
+      {k:'costcust',label:'Biaya per customer (iklan + lain)',t:'rp',up:false,f:m=>m.closing?(m.iklan+m.lain)/m.closing:0},
+      {k:'rate',label:'Closing rate',t:'pct',up:true,f:m=>m.kontak?m.closing/m.kontak*100:0}],
+    url:getUrl(), urlInput:getUrl(), rows:[], loading:true, saving:false, err:'', ok:'', filter:'all', f:blank(), chart:null }),
   computed:{
     sorted(){ return [...this.rows].sort((a,b)=>b.tanggal.localeCompare(a.tanggal)); },
-    monthKeys(){ return [...new Set(this.rows.map(r=>r.tanggal.slice(0,7)))].sort().reverse(); },
+    monthKeys(){ return [...new Set(this.rows.filter(r=>r.tanggal).map(r=>r.tanggal.slice(0,7)))].sort().reverse(); },
     cur(){
       const l = this.filter==='all' ? this.rows : this.rows.filter(r=>r.tanggal.startsWith(this.filter));
       const s = sum(l); s.net = s.gross - s.iklan - s.lain; return s;
@@ -201,20 +209,27 @@ createApp({
         s.key=k; s.net=s.gross-s.iklan-s.lain; return s;
       });
     },
-    fnet(){ return (this.f.gross||0)-(this.f.iklan||0)-(this.f.lain||0); }
+    fnet(){ return (this.f.gross||0)-(this.f.iklan||0)-(this.f.lain||0); },
+    curMetric(){ return this.metrics.find(x=>x.k===this.metric); },
+    vals(){ return this.months.map(m=>this.curMetric.f(m)); }
   },
   watch:{
     tab(){ this.$nextTick(this.draw); },
-    months(){ this.$nextTick(this.draw); }
+    months(){ this.$nextTick(this.draw); },
+    metric(){ this.$nextTick(this.draw); }
   },
   mounted(){ this.load(); },
   methods:{
     rp:n=>'Rp '+Math.round(n).toLocaleString('id-ID'),
     num:n=>Math.round(n).toLocaleString('id-ID'),
     pct:n=>n.toLocaleString('id-ID',{maximumFractionDigits:1})+'%',
-    bln:k=>NB[+k.slice(5,7)-1]+' '+k.slice(0,4),
+    bln:k=>/^\d{4}-\d{2}/.test(k)?NB[+k.slice(5,7)-1]+' '+k.slice(0,4):'Tanggal tidak valid',
+    fmt(t,v){ return t==='rp'?this.rp(v):t==='pct'?this.pct(v):this.num(v); },
     net:r=>r.gross-r.iklan-r.lain,
-    delta(i){ const p=this.months[i-1].net, c=this.months[i].net; return p? (c-p)/Math.abs(p)*100 : (c>=0?100:-100); },
+    diff(i){ return this.vals[i]-this.vals[i-1]; },
+    diffTxt(i){ const d=this.diff(i); return (d>=0?'+':'−')+this.fmt(this.curMetric.t,Math.abs(d)); },
+    chg(i){ const p=this.vals[i-1]; return p? (this.vals[i]-p)/Math.abs(p)*100 : null; },
+    cls(i){ const d=this.diff(i); return d===0?'':((d>0)===this.curMetric.up?'pos':'neg'); },
     flash(t,kind){ this[kind]=t; setTimeout(()=>this[kind]='',4000); },
     async load(){
       this.loading=true; this.err='';
@@ -222,7 +237,7 @@ createApp({
       try{
         const j = await (await fetch(this.url)).json();
         if(!j.ok) throw new Error(j.error);
-        this.rows = j.rows;
+        this.rows = j.rows.map(r=>({...r,tanggal:normDate(r.tanggal)}));
       }catch(e){ this.err='Gagal memuat data dari spreadsheet: '+e.message; }
       this.loading=false;
     },
@@ -256,12 +271,12 @@ createApp({
     draw(){
       if(this.chart){ this.chart.destroy(); this.chart=null; }
       const cv=this.$refs.cv; if(this.tab!=='cmp'||!cv) return;
+      const mt=this.curMetric;
       this.chart=new Chart(cv,{type:'bar',data:{labels:this.months.map(m=>this.bln(m.key)),datasets:[
-        {label:'Gross profit',data:this.months.map(m=>m.gross),backgroundColor:'#7fb7c8'},
-        {label:'Biaya (iklan + lain)',data:this.months.map(m=>m.iklan+m.lain),backgroundColor:'#d9a441'},
-        {label:'Net profit',data:this.months.map(m=>m.net),backgroundColor:'#0b6e8a'}]},
-        options:{responsive:true,maintainAspectRatio:false,scales:{y:{ticks:{callback:v=>(v/1e6)+' jt'}}},
-          plugins:{tooltip:{callbacks:{label:c=>c.dataset.label+': '+this.rp(c.parsed.y)}}}}});
+        {label:mt.label,data:this.vals,backgroundColor:'#0b6e8a'}]},
+        options:{responsive:true,maintainAspectRatio:false,
+          scales:{y:{ticks:{callback:v=>mt.t==='rp'&&Math.abs(v)>=1e6?(v/1e6)+' jt':this.fmt(mt.t,v)}}},
+          plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>mt.label+': '+this.fmt(mt.t,c.parsed.y)}}}}});
     }
   }
 }).mount('#app');
