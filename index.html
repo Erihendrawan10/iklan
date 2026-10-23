@@ -63,7 +63,7 @@ label{font-size:13px;color:var(--mute);display:block;margin-bottom:3px}
 <div id="app">
 <header><div class="wrap">
   <h1>Laporan Meta Ads – Kurasin</h1>
-  <p>Solusi permasalahan air · versi 9</p>
+  <p>Solusi permasalahan air · versi 10</p>
   <nav>
     <button v-for="t in tabs" :key="t[0]" :class="{on:tab===t[0]}" @click="tab=t[0]">{{t[1]}}</button>
   </nav>
@@ -235,6 +235,7 @@ createApp({
         {l:'Jumlah kontak',t:'num',up:true,f:x=>x.kontak},
         {l:'Closing',t:'num',up:true,f:x=>x.closing},
         {l:'Biaya iklan',t:'rp',up:false,f:x=>x.iklan},
+        {l:'Biaya lain',t:'rp',f:x=>x.lain},
         {l:'Cost per kontak',t:'rp',f:x=>x.kontak?x.iklan/x.kontak:0,na:x=>!x.kontak,hint:'biaya iklan ÷ kontak'},
         {l:'Cost per closing',t:'rp',f:x=>x.closing?x.iklan/x.closing:0,na:x=>!x.closing,hint:'biaya iklan ÷ closing'},
         {l:'Gross profit',t:'rp',up:true,f:x=>x.gross},
