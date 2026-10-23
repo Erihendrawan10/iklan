@@ -35,6 +35,7 @@ select,input{font:inherit;padding:9px 11px;border:1px solid var(--line);border-r
 .k b{display:block;font-size:20px;margin-top:2px}
 .k small{color:var(--mute);font-size:12px}
 .grid.big{grid-template-columns:repeat(auto-fill,minmax(230px,1fr))}.grid.big .k{padding:18px}.grid.big .k b{font-size:24px}
+.bar input[type=date]{width:auto}
 .k .chg span{color:inherit;font-size:inherit}
 .chg{margin-top:8px;font-size:13px;font-weight:600}.mut{color:var(--mute);font-weight:400}
 .pos{color:var(--pos)}.neg{color:var(--neg)}
@@ -63,7 +64,7 @@ label{font-size:13px;color:var(--mute);display:block;margin-bottom:3px}
 <div id="app">
 <header><div class="wrap">
   <h1>Laporan Meta Ads – Kurasin</h1>
-  <p>Solusi permasalahan air · versi 10</p>
+  <p>Solusi permasalahan air · versi 11</p>
   <nav>
     <button v-for="t in tabs" :key="t[0]" :class="{on:tab===t[0]}" @click="tab=t[0]">{{t[1]}}</button>
   </nav>
@@ -77,16 +78,28 @@ label{font-size:13px;color:var(--mute);display:block;margin-bottom:3px}
   <!-- DASHBOARD -->
   <section v-if="!loading && tab==='dash'">
     <div class="bar">
-      <h2>Ringkasan keseluruhan</h2>
+      <h2>Ringkasan</h2>
       <select v-model="filter" aria-label="Periode">
-        <option value="all">Semua periode</option>
-        <option v-for="m in monthKeys" :key="m" :value="m">{{bln(m)}}</option>
+        <option value="max">Maksimal</option>
+        <option value="today">Hari ini</option>
+        <option value="yesterday">Kemarin</option>
+        <option value="7d">7 hari terakhir</option>
+        <option value="30d">30 hari terakhir</option>
+        <option value="week">Minggu ini</option>
+        <option value="month">Bulan ini</option>
+        <option value="custom">Rentang tanggal khusus</option>
       </select>
+      <template v-if="filter==='custom'">
+        <input type="date" v-model="cFrom" aria-label="Dari tanggal">
+        <span class="mut">s/d</span>
+        <input type="date" v-model="cTo" aria-label="Sampai tanggal">
+      </template>
     </div>
     <div v-if="!rows.length" class="empty">Belum ada data. Buka tab Input Data untuk menambah laporan pertama.</div>
     <template v-else>
-      <p v-if="cmpM.cur && cmpM.prev" class="mut" style="margin:0 0 12px;font-size:13px">Perubahan membandingkan {{bln(cmpM.ck)}} dengan {{bln(cmpM.pk)}}.</p>
-      <div class="grid big">
+      <p class="mut" style="margin:0 0 12px;font-size:13px">Periode: {{periodText}}.<span v-if="prevRange && prevAgg"> Perubahan dibandingkan dengan {{prevText}}.</span><span v-else-if="filter==='max'"> Pilih periode lain untuk melihat perubahan.</span><span v-else-if="prevRange"> Tidak ada data pada periode pembanding ({{prevText}}).</span></p>
+      <div v-if="!curRows.length" class="empty">Tidak ada data pada periode ini.</div>
+      <div v-else class="grid big">
         <div class="k" v-for="c in cards" :key="c.l">
           <span>{{c.l}}</span>
           <b :class="c.col?(cur.net>=0?'pos':'neg'):''">{{c.na?'-':fmt(c.t,c.v)}}</b>
@@ -95,7 +108,7 @@ label{font-size:13px;color:var(--mute);display:block;margin-bottom:3px}
             <span>{{chgTxt(c)}}</span>
             <span v-if="c.t!=='pct'">({{signed(c.t,c.ch.diff)}})</span>
           </div>
-          <div v-else class="chg mut">Tidak ada pembanding bulan sebelumnya</div>
+          <div v-else-if="filter!=='max'" class="chg mut">Tidak ada pembanding</div>
         </div>
       </div>
     </template>
@@ -190,6 +203,14 @@ const normDate = v => {
 const blank = () => ({ id:'', tanggal:new Date().toISOString().slice(0,10), iklan:0, kontak:0, closing:0, gross:0, lain:0, catatan:'' });
 const sum = list => list.reduce((a,r)=>({iklan:a.iklan+r.iklan,kontak:a.kontak+r.kontak,closing:a.closing+r.closing,gross:a.gross+r.gross,lain:a.lain+r.lain}),{iklan:0,kontak:0,closing:0,gross:0,lain:0});
 
+const iso = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+const pd = s => new Date(s + 'T00:00:00');
+const addD = (s, n) => { const d = pd(s); d.setDate(d.getDate() + n); return iso(d); };
+const SM = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+const fmtD = s => { const d = pd(s); return d.getDate() + ' ' + SM[d.getMonth()] + ' ' + d.getFullYear(); };
+const fmtR = r => r.from === r.to ? fmtD(r.from) : fmtD(r.from) + ' – ' + fmtD(r.to);
+const agg = l => { const s = sum(l); s.net = s.gross - s.iklan - s.lain; return s; };
+
 createApp({
   data:()=>({ tabs:[['dash','Dashboard'],['cmp','Bulanan'],['data','Input Data'],['set','Pengaturan']],
     tab:'dash', metric:'net', metrics:[
@@ -205,14 +226,43 @@ createApp({
       {k:'costkontak',label:'Cost per kontak',t:'rp',up:false,f:m=>m.kontak?m.iklan/m.kontak:0},
       {k:'costclosing',label:'Cost per closing',t:'rp',up:false,f:m=>m.closing?m.iklan/m.closing:0},
       {k:'roi',label:'ROI %',t:'pct',up:true,f:m=>(m.iklan+m.lain)?m.net/(m.iklan+m.lain)*100:0}],
-    url:getUrl(), urlInput:getUrl(), rows:[], loading:true, saving:false, err:'', ok:'', filter:'all', f:blank(), chart:null }),
+    url:getUrl(), urlInput:getUrl(), rows:[], loading:true, saving:false, err:'', ok:'', filter:'max', cFrom:iso(new Date(new Date().getFullYear(), new Date().getMonth(), 1)), cTo:iso(new Date()), f:blank(), chart:null }),
   computed:{
     sorted(){ return [...this.rows].sort((a,b)=>b.tanggal.localeCompare(a.tanggal)); },
     monthKeys(){ return [...new Set(this.rows.filter(r=>r.tanggal).map(r=>r.tanggal.slice(0,7)))].sort().reverse(); },
-    cur(){
-      const l = this.filter==='all' ? this.rows : this.rows.filter(r=>r.tanggal.startsWith(this.filter));
-      const s = sum(l); s.net = s.gross - s.iklan - s.lain; return s;
+    range(){
+      const t = iso(new Date()), f = this.filter;
+      if (f === 'today') return { from: t, to: t };
+      if (f === 'yesterday') { const y = addD(t, -1); return { from: y, to: y }; }
+      if (f === '7d') return { from: addD(t, -6), to: t };
+      if (f === '30d') return { from: addD(t, -29), to: t };
+      if (f === 'week') return { from: addD(t, -((pd(t).getDay() + 6) % 7)), to: t };
+      if (f === 'month') return { from: t.slice(0, 8) + '01', to: t };
+      if (f === 'custom') {
+        if (!this.cFrom || !this.cTo) return null;
+        return this.cFrom <= this.cTo ? { from: this.cFrom, to: this.cTo } : { from: this.cTo, to: this.cFrom };
+      }
+      return null;
     },
+    prevRange(){
+      const r = this.range; if (!r) return null;
+      if (this.filter === 'week') return { from: addD(r.from, -7), to: addD(r.to, -7) };
+      if (this.filter === 'month') {
+        const d = pd(r.to), y = d.getFullYear(), mi = d.getMonth(), end = new Date(y, mi, 0).getDate();
+        return { from: iso(new Date(y, mi - 1, 1)), to: iso(new Date(y, mi - 1, Math.min(d.getDate(), end))) };
+      }
+      const n = Math.round((pd(r.to) - pd(r.from)) / 86400000) + 1;
+      return { from: addD(r.from, -n), to: addD(r.from, -1) };
+    },
+    curRows(){
+      if (this.filter === 'max') return this.rows;
+      return this.range ? this.inRange(this.range) : [];
+    },
+    prevRows(){ return this.prevRange ? this.inRange(this.prevRange) : []; },
+    cur(){ return agg(this.curRows); },
+    prevAgg(){ return this.prevRows.length ? agg(this.prevRows) : null; },
+    periodText(){ return this.filter === 'max' ? 'semua data' : (this.range ? fmtR(this.range) : 'pilih tanggal awal dan akhir'); },
+    prevText(){ return this.prevRange ? fmtR(this.prevRange) : ''; },
     months(){
       return [...this.monthKeys].reverse().map(k=>{
         const s = sum(this.rows.filter(r=>r.tanggal.startsWith(k)));
@@ -222,15 +272,8 @@ createApp({
     fnet(){ return (this.f.gross||0)-(this.f.iklan||0)-(this.f.lain||0); },
     curMetric(){ return this.metrics.find(x=>x.k===this.metric); },
     vals(){ return this.months.map(m=>this.curMetric.f(m)); },
-    cmpM(){
-      const ks=[...this.monthKeys].reverse();
-      const ck=this.filter==='all'?ks[ks.length-1]:this.filter;
-      let pk='';
-      if(ck){ const [y,m]=ck.split('-').map(Number); const d=new Date(y,m-2,1); pk=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); }
-      return {ck,pk,cur:this.months.find(x=>x.key===ck),prev:this.months.find(x=>x.key===pk)};
-    },
     cards(){
-      const c=this.cur, a=this.cmpM.cur, p=this.cmpM.prev;
+      const c=this.cur, a=this.curRows.length?this.cur:null, p=this.prevAgg;
       const defs=[
         {l:'Jumlah kontak',t:'num',up:true,f:x=>x.kontak},
         {l:'Closing',t:'num',up:true,f:x=>x.closing},
@@ -261,6 +304,7 @@ createApp({
     num:n=>Math.round(n).toLocaleString('id-ID'),
     pct:n=>n.toLocaleString('id-ID',{maximumFractionDigits:1})+'%',
     bln:k=>/^\d{4}-\d{2}/.test(k)?NB[+k.slice(5,7)-1]+' '+k.slice(0,4):'Tanggal tidak valid',
+    inRange(r){ return this.rows.filter(x=>x.tanggal&&x.tanggal>=r.from&&x.tanggal<=r.to); },
     chgTxt(c){
       const ar=c.ch.diff>=0?'▲':'▼';
       if(c.t==='pct') return ar+' '+Math.abs(c.ch.diff).toLocaleString('id-ID',{maximumFractionDigits:1})+' poin';
